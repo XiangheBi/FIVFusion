@@ -48,7 +48,7 @@ python test.py
 ```
 
 ## Results
-You can download visual results from (Link：https://pan.baidu.com/s/1GHmqP9himlZ_yo9h2AYCCQ?pwd=o2kp code：o2kp)
+You can download visual results from (Link：https://pan.baidu.com/s/17MNjr_m-BPMj5C0828_rIg?pwd=rstc)
 # Contact:
     Don't hesitate to contact me if you meet any problems when using this code.
     Xianghe Bi
