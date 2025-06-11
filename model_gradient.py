@@ -53,35 +53,6 @@ class Flatten(nn.Module):
 class ChannelGate(nn.Module):
     def __init__(self, gate_channels, reduction_ratio=16, pool_types=['avg', 'max']):
         super(ChannelGate, self).__init__()
-        self.gate_channels = gate_channels
-        self.mlp = nn.Sequential(
-            Flatten(),
-            nn.Linear(gate_channels, gate_channels // reduction_ratio),
-            nn.ReLU(),
-            nn.Linear(gate_channels // reduction_ratio, gate_channels)
-            )
-        self.pool_types = pool_types
-    def forward(self, x):
-        channel_att_sum = None
-        for pool_type in self.pool_types:
-            if pool_type=='avg':
-                avg_pool = F.avg_pool2d( x, (x.size(2), x.size(3)), stride=(x.size(2), x.size(3)))
-                channel_att_raw = self.mlp( avg_pool )
-            elif pool_type=='max':
-                max_pool = F.max_pool2d( x, (x.size(2), x.size(3)), stride=(x.size(2), x.size(3)))
-                channel_att_raw = self.mlp( max_pool )
-            elif pool_type=='lp':
-                lp_pool = F.lp_pool2d( x, 2, (x.size(2), x.size(3)), stride=(x.size(2), x.size(3)))
-                channel_att_raw = self.mlp( lp_pool )
-            elif pool_type=='lse':
-                # LSE pool only
-                lse_pool = logsumexp_2d(x)
-                channel_att_raw = self.mlp( lse_pool )
-            if channel_att_sum is None:
-                channel_att_sum = channel_att_raw
-            else:
-                channel_att_sum = channel_att_sum + channel_att_raw
-        scale = F.sigmoid( channel_att_sum ).unsqueeze(2).unsqueeze(3).expand_as(x)
         return x * scale
 def logsumexp_2d(tensor):
     tensor_flatten = tensor.view(tensor.size(0), tensor.size(1), -1)
@@ -94,13 +65,6 @@ class ChannelPool(nn.Module):
 class SpatialGate(nn.Module):
     def __init__(self):
         super(SpatialGate, self).__init__()
-        kernel_size = 7
-        self.compress = ChannelPool()
-        self.spatial = BasicConv(2, 1, kernel_size, stride=1, padding=(kernel_size-1) // 2, relu=False)
-    def forward(self, x):
-        x_compress = self.compress(x)
-        x_out = self.spatial(x_compress)
-        scale = F.sigmoid(x_out) # broadcasting
         return x * scale
 class CBAM(nn.Module):
     def __init__(self, gate_channels, reduction_ratio=16, pool_types=['avg', 'max'], no_spatial=False):
@@ -124,22 +88,6 @@ def default_conv(in_channels, out_channels, kernel_size, bias=True):
 class GlobalPoolStripAttention(nn.Module):
     def __init__(self, k) -> None:
         super().__init__()
-        self.channel = k
-        self.vert_low = nn.Parameter(torch.zeros(k, 1, 1))
-        self.vert_high = nn.Parameter(torch.zeros(k, 1, 1))
-        self.hori_low = nn.Parameter(torch.zeros(k, 1, 1))
-        self.hori_high = nn.Parameter(torch.zeros(k, 1, 1))
-        self.vert_pool = nn.AdaptiveAvgPool2d((1, None))
-        self.hori_pool = nn.AdaptiveAvgPool2d((None, 1))
-        self.gamma = nn.Parameter(torch.zeros(k,1,1))
-        self.beta = nn.Parameter(torch.ones(k,1,1))
-    def forward(self, x):
-        hori_l = self.hori_pool(x) # 1,3,10,1
-        hori_h = x - hori_l
-        hori_out = self.hori_low * hori_l + (self.hori_high + 1.) * hori_h
-        vert_l = self.vert_pool(hori_out) # 1,3,1,10
-        vert_h = hori_out - vert_l
-        vert_out = self.vert_low * vert_l + (self.vert_high + 1.) * vert_h
         return x * self.beta + vert_out * self.gamma
 
 class SpatialAttentionModule(nn.Module):
@@ -153,38 +101,6 @@ class SpatialAttentionModule(nn.Module):
         out = torch.cat([avgout, maxout], dim=1)
         out = self.sigmoid(self.conv2d(out))
         return out * x
-
-class PDU(nn.Module):
-    def __init__(self, channel):
-        super(PDU, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.ka = nn.Sequential(
-            nn.Conv2d(channel, channel // 8, 1, padding=0, bias=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(channel // 8, channel, 1, padding=0, bias=True),
-            nn.Sigmoid()
-        )
-        self.spa = SpatialAttentionModule()
-        self.sigmoid = nn.Sigmoid()
-    def forward(self, x):
-        a = self.avg_pool(x)
-        a = self.ka(a)
-        t = self.sigmoid(self.spa(x))
-        j = torch.mul((1 - t), a) + torch.mul(t, x)
-        return j
-
-class spAttention(nn.Module):
-    def __init__(self,channel):
-        super(spAttention,self).__init__()
-        self.sp = nn.Sequential(
-            nn.Conv2d(channel , channel//8,kernel_size=1,padding=0,bias=False),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(channel//8 , 1 ,1,padding=0,bias=True),
-            nn.Sigmoid()
-        )
-    def forward(self, x):
-        y = self.sp(x)
-        return x*y
 
 class residualBlock(nn.Module):
     def __init__(self, in_channels=64, k=3, n=64, s=1):
