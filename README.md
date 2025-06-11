@@ -53,8 +53,3 @@ You can download visual results from (Link：https://pan.baidu.com/s/17MNjr_m-BP
     Don't hesitate to contact me if you meet any problems when using this code.
     Xianghe Bi
     Email: xianghe001919@163.com
-
-## If this work is helpful to you, please cite it as：
-```bibtex
-This code is associated with the manuscript submitted to The Visual Computer.
-We kindly request that researchers cite this work if used.
