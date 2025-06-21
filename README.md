@@ -1,4 +1,4 @@
-# <p align=center> Enhancing Fog-Free Infrared and Visible Image Fusion: An Aggregation-to-Decoupling Approach</p>
+# <p align=center> FIVFusion: Fog-free infrared and visible image fusion</p>
 
 ## Continuously updating!  
 Note: Still under review, this code repository is not yet fully complete.
